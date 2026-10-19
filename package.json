@@ -1,0 +1,22 @@
+{
+  "name": "deadline-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal local-first deadline countdown app",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "test": "node --test",
+    "build": "vite build",
+    "android:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/local-notifications": "8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3",
+    "vite": "7.1.12"
+  }
+}

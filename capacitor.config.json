@@ -1,0 +1,12 @@
+{
+  "appId": "app.deadline.countdown",
+  "appName": "DEADLINE",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_deadline",
+      "iconColor": "#b8f36b"
+    }
+  }
+}

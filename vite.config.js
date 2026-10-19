@@ -1,0 +1,13 @@
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  base: './',
+  build: {
+    outDir: 'www',
+    emptyOutDir: true,
+    sourcemap: false
+  },
+  test: {
+    environment: 'node'
+  }
+});
