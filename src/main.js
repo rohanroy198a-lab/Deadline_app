@@ -78,7 +78,7 @@ function renderShell() {
         '<input id="deadline-name" name="title" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Entrance exam" required />',
         '<label for="deadline-date">Date and time</label>',
         '<input id="deadline-date" name="deadline" type="datetime-local" required />',
-        '<p class="form-note">The countdown uses your device's local time.</p>',
+        '<p class="form-note">The countdown uses your device&#39;s local time.</p>',
         '<div class="dialog-actions"><button type="button" id="cancel-dialog" class="secondary-button">Cancel</button><button type="submit" class="primary-button" id="save-button">Save deadline <span aria-hidden="true">↗</span></button></div>',
       '</form>',
     '</dialog>',
