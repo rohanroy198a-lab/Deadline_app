@@ -10,6 +10,7 @@ const app = document.querySelector('#app');
 let deadlines = readDeadlines();
 let alertsEnabled = localStorage.getItem(ALERTS_KEY) === 'true';
 let editingId = null;
+let activeFilter = "all";
 let lastShownIds = new Set();
 
 function readDeadlines() {
@@ -53,23 +54,29 @@ function sortedDeadlines() {
 function renderShell() {
   app.innerHTML = [
     '<div class="app-shell">',
-      '<header class="topbar">',
-        '<a class="brand" href="./" aria-label="DEADLINE home"><span class="brand-mark">D</span><span class="brand-name">DEADLINE</span></a>',
-        '<button class="quiet-button alerts-button" id="alerts-button" type="button"><span class="status-dot"></span><span id="alerts-label">Enable alerts</span></button>',
-      '</header>',
-      '<main>',
-        '<section class="intro">',
-          '<div class="eyebrow"><span class="eyebrow-line"></span> YOUR TIME, IN FOCUS</div>',
-          '<h1>Make time<br><span>count.</span></h1>',
-          '<p class="intro-copy">Keep the dates that matter in sight.<br>One clear countdown at a time.</p>',
-          '<button class="primary-button" id="add-button" type="button"><span class="plus">+</span> Add a deadline</button>',
-        '</section>',
-        '<section class="deadline-section" aria-labelledby="deadlines-heading">',
-          '<div class="section-heading"><div><p class="section-kicker">YOUR TIMELINE</p><h2 id="deadlines-heading">Deadlines <span id="deadline-count" class="count-badge">0</span></h2></div><div class="summary" id="summary"></div></div>',
+      '<aside class="sidebar" aria-label="Deadline navigation">',
+        '<button class="rail-add-button" id="add-button" type="button"><span class="rail-plus">+</span><span>Add deadline</span></button>',
+        '<nav class="sidebar-nav" aria-label="Deadline sections">',
+          '<button type="button" class="nav-item active" data-filter="all"><span class="nav-icon">◷</span><span>All deadlines</span></button>',
+          '<button type="button" class="nav-item" data-filter="upcoming"><span class="nav-icon">◴</span><span>Upcoming</span></button>',
+          '<button type="button" class="nav-item" data-filter="urgent"><span class="nav-icon">⌛</span><span>Urgent</span></button>',
+          '<button type="button" class="nav-item" data-filter="ended"><span class="nav-icon">✓</span><span>Ended</span></button>',
+        '</nav>',
+      '</aside>',
+      '<main class="workspace-panel">',
+        '<header class="workspace-header">',
+          '<h1 class="workspace-title" id="workspace-title">Deadlines</h1>',
+          '<div class="overflow-wrap">',
+            '<button type="button" class="overflow-button" id="overflow-button" aria-label="More options" aria-expanded="false">⋮</button>',
+            '<div class="more-menu" id="more-menu" hidden><button class="menu-action" id="alerts-button" type="button"><span class="menu-action-icon">◉</span><span id="alerts-label">Enable alerts</span></button><p class="menu-note">Notifications are optional.</p></div>',
+          '</div>',
+        '</header>',
+        '<section class="workspace-content" aria-labelledby="list-heading">',
+          '<div class="section-heading"><div><h2 id="list-heading">Your deadlines <span id="deadline-count" class="count-badge">0</span></h2></div><div class="summary" id="summary"></div></div>',
           '<div id="deadline-list" class="deadline-list" aria-live="polite"></div>',
         '</section>',
+        '<footer class="footer"><span><span class="footer-dot"></span> LOCAL BY DESIGN</span><span>Your deadlines stay on this device.</span></footer>',
       '</main>',
-      '<footer class="footer"><span><span class="footer-dot"></span> LOCAL BY DESIGN</span><span>Your deadlines stay on this device.</span></footer>',
     '</div>',
     '<dialog id="deadline-dialog" class="deadline-dialog">',
       '<form id="deadline-form" method="dialog">',
@@ -91,6 +98,29 @@ function renderShell() {
   document.querySelector('#deadline-form').addEventListener('submit', saveDeadline);
   document.querySelector('#deadline-list').addEventListener('click', onListAction);
   document.querySelector('#alerts-button').addEventListener('click', toggleAlerts);
+  document.querySelector('#overflow-button').addEventListener('click', () => {
+    const menu = document.querySelector('#more-menu');
+    const willOpen = menu.hidden;
+    menu.hidden = !willOpen;
+    document.querySelector('#overflow-button').setAttribute('aria-expanded', String(willOpen));
+  });
+  document.querySelector('.sidebar-nav').addEventListener('click', event => {
+    const item = event.target.closest('[data-filter]');
+    if (!item) return;
+    activeFilter = item.dataset.filter;
+    document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button === item));
+    const titles = { all: 'Deadlines', upcoming: 'Upcoming', urgent: 'Urgent deadlines', ended: 'Ended deadlines' };
+    document.querySelector('#workspace-title').textContent = titles[activeFilter] || 'Deadlines';
+    renderDeadlines();
+  });
+  document.addEventListener('click', event => {
+    const wrap = document.querySelector('.overflow-wrap');
+    const menu = document.querySelector('#more-menu');
+    if (wrap && menu && !wrap.contains(event.target)) {
+      menu.hidden = true;
+      document.querySelector('#overflow-button').setAttribute('aria-expanded', 'false');
+    }
+  });
   document.querySelector('#deadline-dialog').addEventListener('click', event => {
     if (event.target === event.currentTarget) closeEditor();
   });
@@ -176,33 +206,40 @@ function renderDeadlines() {
   const list = document.querySelector('#deadline-list');
   if (!list) return;
   const now = Date.now();
-  const records = sortedDeadlines();
-  const activeCount = records.filter(item => item.deadlineAt > now).length;
-  const endedCount = records.length - activeCount;
-  document.querySelector('#deadline-count').textContent = String(records.length);
+  const allRecords = sortedDeadlines();
+  const activeCount = allRecords.filter(item => item.deadlineAt > now).length;
+  const endedCount = allRecords.length - activeCount;
+  const urgentCount = allRecords.filter(item => ['soon', 'critical'].includes(getUrgency(item.deadlineAt, now))).length;
+  document.querySelector('#deadline-count').textContent = String(
+    activeFilter === 'upcoming' ? activeCount :
+    activeFilter === 'urgent' ? urgentCount :
+    activeFilter === 'ended' ? endedCount : allRecords.length
+  );
   document.querySelector('#summary').innerHTML = '<span><b>' + activeCount + '</b> active</span><span class="summary-divider"></span><span><b>' + endedCount + '</b> ended</span>';
-
+  const records = allRecords.filter(record => {
+    if (activeFilter === 'upcoming') return record.deadlineAt > now;
+    if (activeFilter === 'urgent') return ['soon', 'critical'].includes(getUrgency(record.deadlineAt, now));
+    if (activeFilter === 'ended') return record.deadlineAt <= now;
+    return true;
+  });
   if (!records.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-orbit"><span class="empty-clock">◷</span></div><h3>Your time starts here.</h3><p>No deadlines yet. Add the first one and keep it in sight.</p><button class="secondary-button empty-add" type="button" id="empty-add">＋ Add your first deadline</button></div>';
+    const emptyTitle = allRecords.length === 0 ? 'No deadlines' : activeFilter === 'urgent' ? 'No urgent deadlines' : activeFilter === 'ended' ? 'No ended deadlines' : 'No upcoming deadlines';
+    const emptyCopy = allRecords.length === 0 ? 'Your countdowns will appear here when you add your first deadline.' : activeFilter === 'urgent' ? 'Nothing needs your attention right now.' : activeFilter === 'ended' ? 'Deadlines that reach zero will be listed here.' : 'There are no active deadlines in this section.';
+    list.innerHTML = '<div class="empty-state"><div class="empty-orbit"><span class="empty-clock">◷</span></div><h3>' + emptyTitle + '</h3><p>' + emptyCopy + '</p><button class="secondary-button empty-add" type="button" id="empty-add">＋ Add deadline</button></div>';
     document.querySelector('#empty-add').addEventListener('click', () => openEditor());
     return;
   }
-
   list.innerHTML = records.map(record => {
     const remaining = Math.max(0, record.deadlineAt - now);
     const level = getUrgency(record.deadlineAt, now);
     const ended = level === 'ended';
     return '<article class="deadline-card ' + level + (ended ? ' is-ended' : '') + '" data-record="' + esc(record.id) + '">' +
-      '<div class="card-accent"></div>' +
-      '<div class="card-main">' +
-        '<div class="card-top"><span class="urgency"><span class="urgency-dot"></span>' + getUrgencyLabel(level) + '</span>' +
-        '<div class="card-actions"><button type="button" class="icon-button" data-action="edit" data-id="' + esc(record.id) + '" aria-label="Edit ' + esc(record.title) + '" title="Edit deadline">✎</button><button type="button" class="icon-button delete-button" data-action="delete" data-id="' + esc(record.id) + '" aria-label="Delete ' + esc(record.title) + '" title="Delete deadline">×</button></div></div>' +
-        '<h3 class="deadline-title">' + esc(record.title) + '</h3>' +
-        '<p class="deadline-date"><span aria-hidden="true">◷</span> ' + esc(prettyDate(record.deadlineAt)) + '</p>' +
-        '<div class="countdown" aria-label="' + (ended ? 'Deadline ended' : 'Time remaining') + '"><span class="digits" data-countdown="' + esc(record.id) + '">' + formatDuration(remaining) + '</span></div>' +
-        '<div class="card-bottom"><span>' + (ended ? 'THE MOMENT HAS PASSED' : 'TIME REMAINING') + '</span><span class="tiny-rule"></span><span>' + (ended ? '0h 0m 0s' : formatRemainingMeta(remaining)) + '</span></div>' +
-      '</div>' +
-    '</article>';
+      '<div class="card-accent"></div><div class="card-main">' +
+      '<div class="card-top"><span class="urgency"><span class="urgency-dot"></span>' + getUrgencyLabel(level) + '</span>' +
+      '<div class="card-actions"><button type="button" class="icon-button" data-action="edit" data-id="' + esc(record.id) + '" aria-label="Edit ' + esc(record.title) + '" title="Edit deadline">✎</button><button type="button" class="icon-button delete-button" data-action="delete" data-id="' + esc(record.id) + '" aria-label="Delete ' + esc(record.title) + '" title="Delete deadline">×</button></div></div>' +
+      '<h3 class="deadline-title">' + esc(record.title) + '</h3><p class="deadline-date"><span aria-hidden="true">◷</span> ' + esc(prettyDate(record.deadlineAt)) + '</p>' +
+      '<div class="countdown" aria-label="' + (ended ? 'Deadline ended' : 'Time remaining') + '"><span class="digits" data-countdown="' + esc(record.id) + '">' + formatDuration(remaining) + '</span></div>' +
+      '<div class="card-bottom"><span>' + (ended ? 'DEADLINE ENDED' : 'TIME REMAINING') + '</span><span class="tiny-rule"></span><span>' + (ended ? '0h 0m 0s' : formatRemainingMeta(remaining)) + '</span></div></div></article>';
   }).join('');
 }
 
@@ -314,7 +351,7 @@ async function scheduleNativeNotification(record) {
         body: record.title,
         schedule: { at: new Date(record.deadlineAt), allowWhileIdle: true },
         smallIcon: 'ic_stat_icon_config_sample',
-        iconColor: '#b8f36b',
+        iconColor: '#dedede',
         ongoing: false
       }]
     });
