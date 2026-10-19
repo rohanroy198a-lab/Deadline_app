@@ -119,6 +119,7 @@ function closeEditor() {
 
 async function saveDeadline(event) {
   event.preventDefault();
+  const wasEditing = Boolean(editingId);
   const title = document.querySelector('#deadline-name').value.trim();
   const dateValue = document.querySelector('#deadline-date').value;
   const deadlineAt = new Date(dateValue).getTime();
@@ -146,7 +147,7 @@ async function saveDeadline(event) {
   closeEditor();
   renderDeadlines();
   if (alertsEnabled && record.deadlineAt > Date.now()) await scheduleNativeNotification(record);
-  showToast(editingId ? 'Deadline updated.' : 'Deadline saved.');
+  showToast(wasEditing ? 'Deadline updated.' : 'Deadline saved.');
   editingId = null;
 }
 
@@ -312,7 +313,7 @@ async function scheduleNativeNotification(record) {
         title: 'DEADLINE REACHED',
         body: record.title,
         schedule: { at: new Date(record.deadlineAt), allowWhileIdle: true },
-        smallIcon: 'ic_stat_deadline',
+        smallIcon: 'ic_stat_icon_config_sample',
         iconColor: '#b8f36b',
         ongoing: false
       }]

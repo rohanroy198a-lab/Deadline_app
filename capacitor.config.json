@@ -5,7 +5,7 @@
   "bundledWebRuntime": false,
   "plugins": {
     "LocalNotifications": {
-      "smallIcon": "ic_stat_deadline",
+      "smallIcon": "ic_stat_icon_config_sample",
       "iconColor": "#b8f36b"
     }
   }

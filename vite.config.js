@@ -6,8 +6,5 @@ export default defineConfig({
     outDir: 'www',
     emptyOutDir: true,
     sourcemap: false
-  },
-  test: {
-    environment: 'node'
   }
 });
